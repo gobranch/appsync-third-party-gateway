@@ -1,0 +1,11 @@
+# This is the schema exposed to third party developers using the gateway.
+# It can be either a subset of the schema used by your AppSync API or
+# the entire schema.
+
+type Query {
+  sayHello: String!
+}
+
+type Mutation {
+  someRandomMutation(anArgument: String!): String!
+}

@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  AppSyncGraphQLUrl:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: APPSYNC_GRAPHQL_URL
+  AppSyncApiKey:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: APPSYNC_API_KEY
+
+Resources:
+  ApiUsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ExternalApiBeQuoteToBindApiUsersTable
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: apiKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: apiKey
+          KeyType: HASH
+
+  GatewayApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Description: Third party developer gateway for AppSync
+
+  GatewayLambda:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      FunctionName: ExternalApiBeQuoteToBindApiGatewayLambda
+      Runtime: nodejs14.x
+      CodeUri: gateway-lambda
+      Handler: index.handler
+      MemorySize: 3008
+      Timeout: 900
+      Tracing: Active
+      Environment:
+        Variables:
+          API_USERS_TABLE_NAME: !Ref ApiUsersTable
+          APPSYNC_URL: !Ref AppSyncGraphQLUrl
+          APPSYNC_API_KEY: !Ref AppSyncApiKey
+      Events:
+        RequestReceived:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GatewayApi
+            Path: /{any+}
+            Method: ANY
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ApiUsersTable
